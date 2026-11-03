@@ -1,0 +1,25 @@
+{
+  "name": "Radar UI Bitmap Subset",
+  "license": "OFL-1.1",
+  "font_sha256": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+  "source_sha256": "8af0671d13f4d37d1469a68cd59ffa75490deb749b267d9cbdcefd826f999037",
+  "generated_sha256": "84be9f2d232a8b1861432341fa95e63600afbfd52653e72404f9e1422e2e95d8",
+  "generator_sha256": "e2df353e84ae0508d2e26b46916c79324d0fb6cc24b1b462492fcef6bcb6a454",
+  "pillow": "12.1.1",
+  "freetype": "2.14.1",
+  "format": "4bpp coverage, high nibble first, cropped glyphs",
+  "source_font_version": "Noto Sans CJK SC Regular 2.004",
+  "coverage": {
+    "13": " /?BDFS°不中代关别前历反史存定对射尚应度当性或无明暂未测确稳类精系缓表认质量非",
+    "18": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~°±–一三上下不与个中为义习于人仅代件传似位体何例侧保信候值停元充入全关几出分切列别到制刷刻削前功动化匹单历参反发取受变可史右号合向启告器回围固图在地场均坐基填处天失始存学宁安完定实客容对射少尚就局屏峰已布帧常平年并应度开弃强当录形影待态性总感成或投持按据接支效散数整新方无时明显景暂更最有未本条板构果查标样格检止正歧段比水汉法波测消清满演点热物率理生用留疑的监目相知短确示离称稳空窗等签算米类精系线组结绘统绪续维缓编缺网考联舍色范蔽表要见观视览角解警计认记设证识询误败质超足距跟踪输辨达过运近连选通部配采释量错长闲间阵限除随隔集雷需静非面页顶预首验高龄？",
+    "20": "/0168?DPfps",
+    "26": " %-/?ABCDEFGHILMNOPQRSTUVWXYu不中仅位保停充全出到前功动化匹历取变可史启图在地场均填处天失始安完定实尚就已帧平度开当录形待成或持据接效数新方无时显景暂有未查标样检止正波测消清点率理用留的目确示离空等线绪续视认记询误败距达连配采错闲间除随集面预首高",
+    "32": " ?位分回图布平方波测热监空间面"
+  },
+  "glyph_count": 580,
+  "coverage_bytes": 101525,
+  "glyph_table_bytes": 9280,
+  "total_asset_bytes": 110805,
+  "body_px": 18,
+  "roles": "13 reflection states; 18 body; 20 DP; 26 headings/status; 32 page title"
+}

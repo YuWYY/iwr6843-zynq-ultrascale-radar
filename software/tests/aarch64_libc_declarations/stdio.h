@@ -1,0 +1,10 @@
+/* Test-only libc declarations. Not a libc implementation or BSP replacement. */
+#ifndef TEST_STDIO_H
+#define TEST_STDIO_H
+#include <stddef.h>
+#include <stdarg.h>
+int snprintf(char *,size_t,const char *,...);
+int vsnprintf(char *,size_t,const char *,va_list);
+int printf(const char *,...);
+int sscanf(const char *,const char *,...);
+#endif

@@ -1,0 +1,723 @@
+--- uploaded/src/main.c
++++ SW41/src/app/main.c
+@@ -46,7 +46,7 @@
+ {
+     int rc;
+     char command[RADAR_CONSOLE_LINE_BYTES];
+-    xil_printf("\r\n========== F20 RADAR RUNTIME / SW4 ==========\r\n");
++    xil_printf("\r\n========== F20 RADAR RUNTIME / SW4.1 ==========\r\n");
+     xil_printf("Version: %s\r\n",RADAR_SW_VERSION);
+     xil_printf("[INFO] XSA expected: %s\r\n",RADAR_EXPECTED_XSA_SHA256);
+     xil_printf("[INFO] BIT expected: %s\r\n",RADAR_EXPECTED_BIT_SHA256);
+--- uploaded/src/radar_sw2.c
++++ SW41/src/app/radar_sw2.c
+@@ -322,7 +322,7 @@
+     }
+ }
+ 
+-int radar_sw2_capture_claim(RadarSw2 *s)
++int radar_sw2_capture_check(RadarSw2 *s)
+ {
+     if (!s || s->state!=SW2_ONLINE || s->job!=SW2_JOB_NONE ||
+         !s->wiring_confirmed || !s->io_verified || !s->cli_verified || s->fatal_control ||
+@@ -331,6 +331,11 @@
+         !radar_cli_tx_idle(&s->cli) || s->expected_io!=IO_UART) { return -1; }
+     if (read_io(s)!=0 || !pg_ok(s) || !no_capture(s) ||
+         !outputs_match(s,IO_UART) || !(s->flags&RADAR_FLAG_NERR_N)) { return -1; }
++    return 0;
++}
++int radar_sw2_capture_claim(RadarSw2 *s)
++{
++    if (radar_sw2_capture_check(s)!=0) { return -1; }
+     s->state=SW2_CAPTURE;
+     return 0;
+ }
+--- uploaded/src/radar_sw2.h
++++ SW41/src/app/radar_sw2.h
+@@ -33,6 +33,8 @@
+ void radar_sw2_poll(RadarSw2 *s);
+ /* Exclusive transfer to SW4. While claimed, legacy SW2 poll/commands are
+  * inert; SW4 services UART and checks per-stage power/IO/capture invariants. */
++/* Preflight checks ownership/power/IO without enabling outputs or claiming. */
++int radar_sw2_capture_check(RadarSw2 *s);
+ int radar_sw2_capture_claim(RadarSw2 *s);
+ int radar_sw2_capture_io(RadarSw2 *s,u16 request);
+ int radar_sw2_capture_release(RadarSw2 *s,int fault);
+--- uploaded/src/radar_sw3.c
++++ SW41/src/app/radar_sw3.c
+@@ -1,5 +1,5 @@
+ /* SPDX-License-Identifier: MIT
+- * SW3.1 controls/diagnostics retained inside SW4. No synthetic stream, no ARM.
++ * SW3.2 independent reset qualification and no-input halt diagnostics. No synthetic stream, no ARM.
+  * HALT_TIMEOUT never automatically falls through to RESET: `dma reset` is
+  * a separate, user-authorized, no-producer recovery. A reset does not fix the
+  * recorded halt test result. A final RESET timeout requires target reset.
+@@ -14,6 +14,81 @@
+ #define CHECK_LIMIT_US 1000000U
+ #define CHECK_SESSION UINT32_C(0x53573300)
+ 
++const char *radar_sw3_qualification_name(RadarQualificationKind kind)
++{
++    switch (kind) {
++    case RADAR_QUAL_RESET_CONTROL: return "RUN_RESET";
++    case RADAR_QUAL_RUN_HALT_RESET: return "RUN_HALT_RESET";
++    default: return "NONE";
++    }
++}
++const char *radar_sw3_qualification_reason(RadarQualificationReason reason)
++{
++    static const char *const names[] = {
++        "NOT_TESTED", "VALID", "NEW_TEST", "TEST_FAILED", "EXPLICIT_RESET",
++        "STALE_EPOCH", "DMA_NOT_READY", "CAPTURE_CONSUMED", "SESSION_FAILED",
++        "CANCELED"
++    };
++    return (u32)reason < sizeof(names)/sizeof(names[0]) ? names[reason] : "UNKNOWN";
++}
++void radar_sw3_revoke_qualification(RadarSw3 *s, RadarQualificationReason reason)
++{
++    if (!s) { return; }
++    s->reset_qualified=0U;
++    s->control_qualified=0U;
++    s->qualification_reason=reason;
++    /* Retain issued kind/epoch for diagnostics; flags above are the permit. */
++}
++static int qualification_memory_ready(const RadarSw3 *s)
++{
++    const RadarDma *d=&s->dma;
++    u32 i;
++    if (s->job!=SW3_IDLE || d->state!=RADAR_DMA_READY || !d->configured ||
++        !d->ring_created || !d->ring || !d->reset_confirmed || d->lease_active ||
++        d->packet_queued || d->partial_prefix || d->last_error ||
++        d->ring->FreeCnt!=(int)RADAR_RX_BD_COUNT || d->ring->PreCnt ||
++        d->ring->HwCnt || d->ring->PostCnt) { return 0; }
++    for (i=0U;i<RADAR_RX_BD_COUNT;++i) {
++        if (d->slot[i].owner!=RADAR_BUFFER_FREE) { return 0; }
++    }
++    return 1;
++}
++static void expire_qualification(RadarSw3 *s)
++{
++    if (!s->reset_qualified) { return; }
++    if (s->qualification_epoch!=s->dma.epoch ||
++        s->qualification_reset_count!=s->dma.reset_count) {
++        radar_sw3_revoke_qualification(s,RADAR_QUAL_STALE_EPOCH);
++    } else if (!qualification_memory_ready(s)) {
++        radar_sw3_revoke_qualification(s,RADAR_QUAL_DMA_NOT_READY);
++    }
++}
++int radar_sw3_capture_ready(RadarSw3 *s)
++{
++    if (!s) { return 0; }
++    expire_qualification(s);
++    if (!s->reset_qualified || s->qualification_reason!=RADAR_QUAL_VALID) { return 0; }
++    if (!radar_dma_is_quiescent(&s->dma) || radar_dma_ring_check(&s->dma)!=0) {
++        radar_sw3_revoke_qualification(s,RADAR_QUAL_DMA_NOT_READY);
++        return 0;
++    }
++    return 1;
++}
++int radar_sw3_consume_qualification(RadarSw3 *s)
++{
++    if (!radar_sw3_capture_ready(s)) { return RADAR_DMA_E_OWNER; }
++    radar_sw3_revoke_qualification(s,RADAR_QUAL_CONSUMED);
++    return 0;
++}
++void radar_sw3_print_qualification(RadarSw3 *s)
++{
++    int ready=radar_sw3_capture_ready(s);
++    SAY(s,"[QUAL] capture_entry=%u kind=%s reason=%s issued_epoch=%u current_epoch=%u reset_serial=%u/%u one_use=1\r\n",
++        (unsigned)ready,radar_sw3_qualification_name(s->qualification_kind),
++        radar_sw3_qualification_reason(s->qualification_reason),
++        (unsigned)s->qualification_epoch,(unsigned)s->dma.epoch,
++        (unsigned)s->qualification_reset_count,(unsigned)s->dma.reset_count);
++}
+ static int quiet_guard(RadarSw3 *s)
+ {
+     int rc;
+@@ -38,7 +113,9 @@
+ {
+     RadarDmaRegisters r;
+     RadarDma *d=&s->dma;
+-    int rc=radar_dma_registers(d,&r);
++    int rc;
++    (void)radar_sw3_capture_ready(s);
++    rc=radar_dma_registers(d,&r);
+     unsigned i;
+     SAY(s,"[DMA] state=%s probe=%s epoch=%u reset_confirmed=%u lease=%u full_control_qualified=%u\r\n",
+         radar_dma_state_name(d->state),radar_dma_error_name(rc),(unsigned)d->epoch,
+@@ -55,7 +132,13 @@
+         (unsigned)d->completed_packets,(unsigned)d->completed_bds,(unsigned)(d->completed_bytes>>32U),
+         (unsigned)d->completed_bytes,(unsigned)d->partial_prefix,(unsigned)d->packet_queued,
+         radar_dma_error_name(d->last_error));
+-    for (i=0U;i<3U;++i) { print_bd(s,&r.bd[i]); }
++    for (i=0U;i<3U;++i) {
++        /* CUR often equals BD1: do not print it a second time. */
++        if (i==2U && r.bd[i].valid &&
++            (r.bd[i].address==r.bd[0].address || r.bd[i].address==r.bd[1].address)) { continue; }
++        print_bd(s,&r.bd[i]);
++    }
++    radar_sw3_print_qualification(s);
+ }
+ static void print_trace(RadarSw3 *s)
+ {
+@@ -113,11 +196,19 @@
+         rc=RADAR_DMA_E_STATE;
+         SAY(s,"[REFUSE] DMA=%s; dma status/trace; recovery is explicit\r\n",radar_dma_state_name(s->dma.state));
+     }
++    if (!rc && (!s->dma.ring_created || !s->dma.ring || !s->dma.reset_confirmed ||
++        s->dma.lease_active || s->dma.packet_queued ||
++        s->dma.ring->FreeCnt!=(int)RADAR_RX_BD_COUNT || s->dma.ring->PreCnt ||
++        s->dma.ring->HwCnt || s->dma.ring->PostCnt ||
++        !radar_dma_is_quiescent(&s->dma) || radar_dma_ring_check(&s->dma)!=0)) {
++        SAY(s,"[REFUSE] DMA is not physically reset/all-free; no canary or BD memory written\r\n");
++        rc=RADAR_DMA_E_OWNER;
++    }
+     return rc;
+ }
+ static void terminate_failure(RadarSw3 *s,int error)
+ {
+-    s->control_qualified=0U;
++    radar_sw3_revoke_qualification(s,s->canceled?RADAR_QUAL_CANCELED:RADAR_QUAL_TEST_FAILED);
+     if (!s->check_error) { s->check_error=error; }
+     if (!s->canceled) { ++s->checks_failed; }
+     s->job=SW3_IDLE;
+@@ -136,6 +227,7 @@
+     int rc=s->check_error;
+     if (!rc) { rc=verify_canaries(s); }
+     if (!rc) { rc=quiet_guard(s); }
++    if (!rc) { rc=radar_dma_ring_check(&s->dma); }
+     if (!rc && (!s->run_observed || s->observed_completed_bds || s->observed_completed_packets ||
+         s->dma.reset_result!=RADAR_DMA_PHASE_PASS ||
+         (!s->direct_reset && s->dma.halt_result!=RADAR_DMA_PHASE_PASS))) { rc=RADAR_DMA_E_DEADLINE; }
+@@ -143,19 +235,29 @@
+         s->dma.ring->HwCnt || s->dma.ring->PostCnt || s->dma.lease_active)) { rc=RADAR_DMA_E_OWNER; }
+     if (rc || s->canceled) { terminate_failure(s,rc?rc:RADAR_DMA_E_STATE);return; }
+     if (s->direct_reset) { ++s->direct_reset_passes; }
+-    else { ++s->checks_passed;s->control_qualified=1U; }
++    else { ++s->checks_passed; }
+     ++s->batch_done;
+     SAY(s,"RESULT: PASS SW3 %s %u/%u; halt=%s reset=%s; no input, 128 free BDs, four canary lines unchanged. REAL_RX=NOT_TESTED_BY_SW3\r\n",
+         s->direct_reset?"RUN_TO_RESET_ONLY":"RUN_HALT_RESET",(unsigned)s->batch_done,(unsigned)s->batch_total,
+         radar_dma_phase_name(s->dma.halt_result),radar_dma_phase_name(s->dma.reset_result));
+     s->job=s->batch_done<s->batch_total?SW3_REPEAT_WAIT:SW3_IDLE;
+     s->phase_us=radar_hw_now_us();
++    /* An intermediate batch pass is history only. Issue at the FINAL epoch. */
++    if (s->job==SW3_IDLE) {
++        s->qualification_epoch=s->dma.epoch;
++        s->qualification_reset_count=s->dma.reset_count;
++        s->qualification_kind=s->direct_reset?RADAR_QUAL_RESET_CONTROL:RADAR_QUAL_RUN_HALT_RESET;
++        s->qualification_reason=RADAR_QUAL_VALID;
++        s->reset_qualified=1U;s->control_qualified=(u8)!s->direct_reset;
++        radar_sw3_print_qualification(s);
++    }
+ }
+ static int start_check(RadarSw3 *s)
+ {
+-    int rc=ensure_open(s);
++    int rc;
++    radar_sw3_revoke_qualification(s,RADAR_QUAL_NEW_TEST);
++    rc=ensure_open(s);
+     if (rc) { return rc; }
+-    s->control_qualified=0U;
+     s->check_error=0; s->canceled=0U;s->run_observed=0U;
+     s->observed_completed_bds=0U;s->observed_completed_packets=0U;
+     write_canaries(s);
+@@ -173,14 +275,14 @@
+ void radar_sw3_init(RadarSw3 *s,RadarSw2 *sw2,RadarControl *control,RadarConsole *console)
+ {
+     memset(s,0,sizeof(*s));s->sw2=sw2;s->control=control;s->console=console;radar_dma_construct(&s->dma);
+-    SAY(s,"[SW3.1] dma init | dma check | dma check10 | dma check reset | dma reset | dma status | dma trace | progress\r\n");
++    SAY(s,"[SW3.2] dma qualify / qualify10 (RUN->RESET) | dma check / check10 (HALT diagnostic) | dma reset/status/trace | progress\r\n");
+ }
+ void radar_sw3_poll(RadarSw3 *s)
+ {
+     u64 now=radar_hw_now_us();
+     RadarDmaRegisters r;
+     int rc=radar_dma_poll(&s->dma,now);
+-    if (s->job==SW3_IDLE) { return; }
++    if (s->job==SW3_IDLE) { expire_qualification(s);return; }
+     if (s->dma.state==RADAR_DMA_LOCKED || s->dma.state==RADAR_DMA_HALT_TIMEOUT || rc<0) {
+         terminate_failure(s,rc<0?rc:s->dma.last_error);return;
+     }
+@@ -248,12 +350,13 @@
+ {
+     int rc;
+     if (strcmp(cmd,"help")==0) {
+-        SAY(s,"SW3: dma init/status/trace/reset/check/check10 | dma check reset | dma plan BYTES PACKETS | progress\r\n");return 0;
++        SAY(s,"SW3.2: dma init/status/trace/reset | dma qualify/qualify10 | dma check/check10 (HALT diagnostic) | dma check reset / dma check10 reset | dma plan BYTES PACKETS\r\n");return 0;
+     }
+     if (strcmp(cmd,"progress")==0) {
+         SAY(s,"[PROGRESS boot] SW0/SW1=PASS SW2 check10=%u reset3=%u SW3 run_halt_reset=%u direct_reset=%u failed=%u\r\n",
+             (unsigned)s->sw2->check10_passes,(unsigned)s->sw2->reset3_passes,(unsigned)s->checks_passed,
+             (unsigned)s->direct_reset_passes,(unsigned)s->checks_failed);
++        radar_sw3_print_qualification(s);
+         SAY(s,"[SCOPE] SW3 proves control ONLY. Actual RAW16 result belongs to `capture status`; ADC semantics are not validated here.\r\n");return 1;
+     }
+     if (strcmp(cmd,"dma status")==0) { radar_sw3_print_dma(s);return 1; }
+@@ -266,7 +369,7 @@
+     }
+     if (strcmp(cmd,"safe")==0||strcmp(cmd,"disable")==0) {
+         if (s->job!=SW3_IDLE) {
+-            s->canceled=1U;s->control_qualified=0U;
++            s->canceled=1U;radar_sw3_revoke_qualification(s,RADAR_QUAL_CANCELED);
+             if (s->dma.state==RADAR_DMA_RUNNING || s->dma.state==RADAR_DMA_STAGED) { (void)radar_dma_stop_begin(&s->dma); }
+             s->job=SW3_IDLE;
+             SAY(s,"[CANCELED] SW3. Halt is polled, no automatic reset. Use dma status then explicit dma reset.\r\n");
+@@ -277,15 +380,18 @@
+     if (strcmp(cmd,"dma init")==0) { if(ensure_open(s)==0){radar_sw3_print_dma(s);}return 1; }
+     if (strcmp(cmd,"dma reset")==0) {
+         if (quiet_guard(s)!=0) { SAY(s,"[REFUSE] Explicit DMA reset needs SW2 SAFE and no PL producer/session\r\n");return 1; }
+-        s->control_qualified=0U;
++        radar_sw3_revoke_qualification(s,RADAR_QUAL_EXPLICIT_RESET);
+         rc=radar_dma_reset_authorized(&s->dma);
+         if (rc<0) { SAY(s,"[REFUSE] reset: %s; RESET_LOCKED is not retried\r\n",radar_dma_error_name(rc)); }
+         else { s->canceled=0U;s->check_error=0;s->job=SW3_RESET_ONLY;SAY(s,"[RESET] One explicit reset request; DDR remains quarantined until confirmed\r\n"); }
+         return 1;
+     }
+-    if (strcmp(cmd,"dma check")==0||strcmp(cmd,"dma check10")==0||strcmp(cmd,"dma check reset")==0) {
+-        s->direct_reset=(u8)(strcmp(cmd,"dma check reset")==0);
+-        s->batch_total=strcmp(cmd,"dma check10")==0?10U:1U;s->batch_done=0U;
++    if (strcmp(cmd,"dma check")==0 || strcmp(cmd,"dma check10")==0 ||
++        strcmp(cmd,"dma check reset")==0 || strcmp(cmd,"dma check10 reset")==0 ||
++        strcmp(cmd,"dma qualify")==0 || strcmp(cmd,"dma qualify10")==0) {
++        s->direct_reset=(u8)(strcmp(cmd,"dma check")!=0 && strcmp(cmd,"dma check10")!=0);
++        s->batch_total=(strcmp(cmd,"dma check10")==0 || strcmp(cmd,"dma check10 reset")==0 ||
++                        strcmp(cmd,"dma qualify10")==0)?10U:1U;s->batch_done=0U;
+         (void)start_check(s);return 1;
+     }
+     if (strncmp(cmd,"dma",3U)==0&&(cmd[3]=='\0'||cmd[3]==' ')) { SAY(s,"[REJECT] Unknown dma command; type help\r\n");return 1; }
+--- uploaded/src/radar_sw3.h
++++ SW41/src/app/radar_sw3.h
+@@ -7,6 +7,17 @@
+     SW3_IDLE=0, SW3_WAIT_RUN, SW3_OBSERVE, SW3_WAIT_HALT,
+     SW3_WAIT_RESET, SW3_RESET_ONLY, SW3_REPEAT_WAIT
+ } RadarSw3Job;
++/* Historical pass counters are NOT admission permissions. This one-use
++ * permission is issued only after an entire requested batch completes. */
++typedef enum {
++    RADAR_QUAL_NONE=0, RADAR_QUAL_RESET_CONTROL, RADAR_QUAL_RUN_HALT_RESET
++} RadarQualificationKind;
++typedef enum {
++    RADAR_QUAL_NOT_TESTED=0, RADAR_QUAL_VALID, RADAR_QUAL_NEW_TEST,
++    RADAR_QUAL_TEST_FAILED, RADAR_QUAL_EXPLICIT_RESET, RADAR_QUAL_STALE_EPOCH,
++    RADAR_QUAL_DMA_NOT_READY, RADAR_QUAL_CONSUMED, RADAR_QUAL_SESSION_FAILED,
++    RADAR_QUAL_CANCELED
++} RadarQualificationReason;
+ typedef struct {
+     RadarDma dma;
+     RadarSw2 *sw2;
+@@ -17,12 +28,25 @@
+     u32 guard_flags, guard_io, checks_passed, checks_failed;
+     u32 direct_reset_passes, reset_only_passes, batch_total, batch_done;
+     u32 observed_completed_bds, observed_completed_packets, expected_tail;
++    u32 qualification_epoch, qualification_reset_count;
++    RadarQualificationKind qualification_kind;
++    RadarQualificationReason qualification_reason;
+     int check_error;
+-    u8 canceled, run_observed, direct_reset, control_qualified;
++    u8 canceled, run_observed, direct_reset, control_qualified, reset_qualified;
+ } RadarSw3;
+ void radar_sw3_init(RadarSw3 *s,RadarSw2 *sw2,RadarControl *control,RadarConsole *console);
+ /* Called only when SW4 has NOT claimed the runtime. Owns the one DMA poll. */
+ void radar_sw3_poll(RadarSw3 *s);
+ int radar_sw3_command(RadarSw3 *s,const char *command);
+ void radar_sw3_print_dma(RadarSw3 *s);
++/* Read-only hardware validation, with fail-closed invalidation of stale local
++ * permissions. Never starts/stops/resets DMA, touches payload, or enables RF. */
++int radar_sw3_capture_ready(RadarSw3 *s);
++void radar_sw3_revoke_qualification(RadarSw3 *s, RadarQualificationReason reason);
++/* Single cooperative owner must already have claimed SW2. Consumes before
++ * first sensorStop/config/ARM. Success/failure never auto-renews permission. */
++int radar_sw3_consume_qualification(RadarSw3 *s);
++const char *radar_sw3_qualification_name(RadarQualificationKind kind);
++const char *radar_sw3_qualification_reason(RadarQualificationReason reason);
++void radar_sw3_print_qualification(RadarSw3 *s);
+ #endif
+--- uploaded/src/radar_dma.c
++++ SW41/src/hal/radar_dma.c
+@@ -300,7 +300,8 @@
+ {
+     u32 n,prime;
+     int rc;
+-    if (!d || d->state!=RADAR_DMA_READY || !d->ring_created || d->packet_queued ||
++    if (!d || d->state!=RADAR_DMA_READY || !d->configured || !d->ring_created ||
++        !d->ring || !d->reset_confirmed || !radar_dma_is_quiescent(d) || d->packet_queued ||
+         d->lease_active || XAxiDma_BdRingGetFreeCnt(d->ring)!=(int)RADAR_RX_BD_COUNT) {
+         return RADAR_DMA_E_STATE;
+     }
+@@ -325,6 +326,7 @@
+     d->last_poll_us=d->started_us;
+     d->halt_result=RADAR_DMA_PHASE_NOT_RUN;
+     d->reset_result=RADAR_DMA_PHASE_NOT_RUN;
++    d->halt_elapsed_us=0U;d->reset_elapsed_us=0U;d->max_poll_gap_us=0U;
+     trace_event(d,RADAR_DMA_EVT_START,0U);
+     return 0;
+ }
+@@ -571,6 +573,9 @@
+     if (d->last_error==0) { capture_registers(d,&d->failure); }
+     d->stop_was_incomplete=(u8)(d->finite_packets==0U || d->completed_packets!=d->finite_packets);
+     d->transition_us=radar_hw_now_us(); d->transition_polls=0U;
++    if (d->state!=RADAR_DMA_RUNNING) { d->max_poll_gap_us=0U; }
++    d->last_poll_us=d->transition_us;
++    d->halt_elapsed_us=0U;
+     d->halt_result=RADAR_DMA_PHASE_PENDING; ++d->halt_requests;
+     cr=XAxiDma_ReadReg(d->ring->ChanBase,XAXIDMA_CR_OFFSET);
+     written=cr & ~(XAXIDMA_CR_RUNSTOP_MASK|XAXIDMA_IRQ_ALL_MASK);
+@@ -586,8 +591,15 @@
+     }
+     if (d->state==RADAR_DMA_RESETTING) { return RADAR_DMA_PENDING; }
+     if (d->last_error==0) { capture_registers(d,&d->failure); }
++    /* Exclude minutes spent at SAFE/quarantine waiting for an explicit command.
++     * In a live run, retain that run's active maximum; start() resets it. */
++    if (d->state!=RADAR_DMA_RUNNING && d->state!=RADAR_DMA_HALTING) {
++        d->max_poll_gap_us=0U;
++    }
+     d->reset_confirmed=0U; d->reset_result=RADAR_DMA_PHASE_PENDING;
++    d->reset_elapsed_us=0U;
+     d->transition_us=radar_hw_now_us(); d->transition_polls=0U; ++d->reset_requests;
++    d->last_poll_us=d->transition_us;
+     XAxiDma_Reset(&d->device); radar_hw_barrier(); d->state=RADAR_DMA_RESETTING;
+     trace_event(d,RADAR_DMA_EVT_RESET_REQUEST,XAXIDMA_CR_RESET_MASK);
+     return RADAR_DMA_PENDING;
+--- uploaded/src/radar_dma.h
++++ SW41/src/hal/radar_dma.h
+@@ -84,6 +84,8 @@
+     u32 session, epoch, submitted_packets, completed_packets, released_packets;
+     u32 submitted_bds, completed_bds, released_bds, partial_prefix;
+     u32 stall_timeout_us, transition_polls, reset_count;
++    /* max_poll_gap: active run/recovery only, reset on start or isolated reset.
++     * Cumulative counters and trace history are deliberately not cleared. */
+     u32 reset_requests, halt_requests, max_poll_gap_us, trace_head, trace_count;
+     u32 halt_elapsed_us, reset_elapsed_us;
+     u64 last_poll_us;
+--- uploaded/src/radar_session.c
++++ SW41/src/capture/radar_session.c
+@@ -1,5 +1,5 @@
+ /* SPDX-License-Identifier: MIT
+- * SW4 finite acquisition supervisor. Single cooperative owner of GPIO/UART/SG.
++ * SW4.1 finite acquisition supervisor. Single cooperative owner of GPIO/UART/SG.
+  * No IRQ/RTOS, second GPIO or second data source. A transport packet is NOT a
+  * chirp/frame. RF/config actions require compiled, reviewed actual bin/cfg plus
+  * explicit local confirmation and SW3/SW2 prerequisites from this boot.
+@@ -61,7 +61,9 @@
+     RadarDma *d=&s->sw3->dma;
+     if (s->state==RADAR_SESSION_FAILED) { return; }
+     s->failed_phase=s->state;s->error=error;s->native_error=native;
+-    s->result.valid=0U;s->exporting=0U;s->sw3->control_qualified=0U;++s->captures_failed;
++    s->result.valid=0U;s->exporting=0U;
++    radar_sw3_revoke_qualification(s->sw3,RADAR_QUAL_SESSION_FAILED);
++    ++s->captures_failed;
+     (void)radar_dma_registers(d,&s->failure_dma);
+     /* Cancellation never means sensorStop. If START may have been sent, the
+      * producer remains UNKNOWN until a real stop ACK or verified reset hold. */
+@@ -132,8 +134,48 @@
+ {
+     memset(s,0,sizeof(*s));s->sw3=sw3;s->sw2=sw2;s->control=control;s->console=console;
+     s->profile=radar_capture_profile_get();s->next_session=1U;s->state=RADAR_SESSION_IDLE;
+-    SAY(s,"[SW4] capture profile | capture confirm ID | capture once | capture status | capture export | capture clear | capture recover\r\n");
++    SAY(s,"[SW4.1] capture preflight | capture profile | capture confirm ID | capture once | capture status | capture export | capture clear | capture recover\r\n");
+     SAY(s,"[SW4] Default profile is unqualified unless generated from actual bin/cfg/review. Boot never starts RF/DMA.\r\n");
++}
++u32 radar_session_preflight(RadarSession *s)
++{
++    u32 blocked=0U;
++    if (radar_capture_profile_validate(s->profile)!=0) { blocked|=RADAR_PREFLIGHT_PROFILE; }
++    if (!s->confirmed) { blocked|=RADAR_PREFLIGHT_CONFIRM; }
++    if (!radar_sw3_capture_ready(s->sw3)) { blocked|=RADAR_PREFLIGHT_DMA_QUAL; }
++    if (s->sw3->job!=SW3_IDLE) { blocked|=RADAR_PREFLIGHT_SW3_BUSY; }
++    if (!s->sw2->check10_passes || !s->sw2->reset3_passes) { blocked|=RADAR_PREFLIGHT_SW2_TESTS; }
++    if (!s->sw2->cli.version_valid || s->sw2->cli.version_epoch!=s->sw2->cli.reset_epoch ||
++        !radar_capture_profile_version_matches(s->profile,s->sw2->cli.last_version)) {
++        blocked|=RADAR_PREFLIGHT_VERSION;
++    }
++    if (s->owns || s->exporting || s->result.valid || !s->next_session ||
++        (s->state!=RADAR_SESSION_IDLE && s->state!=RADAR_SESSION_DONE)) {
++        blocked|=RADAR_PREFLIGHT_OWNER;
++    }
++    if (s->control->desynced || s->control->pending || !s->control->abi_verified ||
++        s->sw2->fatal_control) { blocked|=RADAR_PREFLIGHT_CONTROL; }
++    /* Never perform a competing mailbox transaction during an owned session.
++     * This check only reads IO status; no enabling, reset, UART TX or claim. */
++    if ((blocked&(RADAR_PREFLIGHT_CONTROL|RADAR_PREFLIGHT_OWNER|RADAR_PREFLIGHT_SW3_BUSY)) ||
++        radar_sw2_capture_check(s->sw2)!=0) { blocked|=RADAR_PREFLIGHT_SW2_READY; }
++    s->preflight_blockers=blocked;
++    return blocked;
++}
++void radar_session_print_preflight(RadarSession *s)
++{
++    static const char *const gates[] = {
++        "GENERATED_PROFILE", "USER_CONFIRM", "DMA_EPOCH_PERMISSION", "SW3_IDLE",
++        "SW2_CHECK10_RESET3", "CURRENT_VERSION", "SW2_ONLINE_POWER_IO",
++        "IDLE_EMPTY_RESULT", "GPIO_ABI_OWNER"
++    };
++    u32 i,blocked=radar_session_preflight(s);
++    SAY(s,"[PREFLIGHT] %s blockers=%08x; READ_ONLY, no UART TX/ARM/reset/RF; does not consume permission\r\n",
++        blocked?"BLOCKED":"READY",(unsigned)blocked);
++    for (i=0U;i<sizeof(gates)/sizeof(gates[0]);++i) {
++        SAY(s,"[GATE] %s=%s\r\n",gates[i],(blocked&(1U<<i))?"BLOCK":"PASS");
++    }
++    radar_sw3_print_qualification(s->sw3);
+ }
+ int radar_session_start(RadarSession *s)
+ {
+@@ -141,19 +183,24 @@
+     if (s->owns || s->exporting || s->result.valid ||
+         (s->state!=RADAR_SESSION_IDLE&&s->state!=RADAR_SESSION_DONE)) { return RADAR_SESSION_E_OWNER; }
+     if (radar_capture_profile_validate(s->profile)||!s->confirmed) { return RADAR_SESSION_E_PROFILE; }
+-    if (s->sw3->job!=SW3_IDLE || !s->sw3->checks_passed || !s->sw3->control_qualified ||
+-        !s->sw2->check10_passes || !s->sw2->reset3_passes ||
+-        !s->sw2->cli.version_valid || s->sw2->cli.version_epoch!=s->sw2->cli.reset_epoch ||
+-        !radar_capture_profile_version_matches(s->profile,s->sw2->cli.last_version)) { return RADAR_SESSION_E_PREREQUISITE; }
++    if (radar_session_preflight(s)!=0U) { return RADAR_SESSION_E_PREREQUISITE; }
+     if (!s->next_session || d->state!=RADAR_DMA_READY || !d->reset_confirmed || !radar_dma_is_quiescent(d) ||
+         d->packet_queued || d->ring->FreeCnt!=(int)RADAR_RX_BD_COUNT) { return RADAR_SESSION_E_OWNER; }
+     rc=radar_sw2_capture_claim(s->sw2);if(rc){return RADAR_SESSION_E_OWNER;}
+     s->owns=1U;s->active_session=s->next_session++;s->begin_us=radar_hw_now_us();
++    s->admission_kind=s->sw3->qualification_kind;s->admission_epoch=d->epoch;
+     s->source=RADAR_SOURCE_UNKNOWN;s->error=0;s->native_error=0;s->cleanup_error=0;
+     s->reported_failure=0U;s->copy_lease=0U;s->config_index=0U;s->shadow_index=0U;s->idle_samples=0U;
+     s->copy_bytes=0U;s->copy_fragment=0U;s->copy_fragment_offset=0U;s->copy_crc=UINT32_MAX;
+     memset(&s->result,0,sizeof(s->result));memset(&s->snapshot,0,sizeof(s->snapshot));memset(&s->phy,0,sizeof(s->phy));
++    s->result.admission_kind=s->admission_kind;
+     enter(s,RADAR_SESSION_STOP_BEFORE,s->begin_us);s->guard_us=0U;
++    /* Consume only after other gates and SW2 claim succeeded, before any RF
++     * command. Teardown resets advance epoch; no history-based auto-renewal. */
++    rc=radar_sw3_consume_qualification(s->sw3);
++    if (rc) { failure(s,RADAR_SESSION_E_PREREQUISITE,rc);return RADAR_SESSION_E_PREREQUISITE; }
++    SAY(s,"[ADMISSION] consumed=%s epoch=%u; full-payload HALT/RESET remain mandatory\r\n",
++        radar_sw3_qualification_name(s->admission_kind),(unsigned)s->admission_epoch);
+     rc=start_cli(s,RADAR_CAPTURE_CMD_STOP,0U,s->begin_us);
+     if (rc) { failure(s,RADAR_SESSION_E_UART,rc);return RADAR_SESSION_E_UART; }
+     SAY(s,"[SW4] session=%u profile=%s finite=%u x %uB. sensorStop -> config -> PHY -> SG -> ARM -> sensorStart. RAW transport, not ADC/frame proof.\r\n",
+@@ -350,6 +397,16 @@
+     case RADAR_SESSION_HALT:
+         if(d->state!=RADAR_DMA_HALTED){break;}
+         if(d->halt_result!=RADAR_DMA_PHASE_PASS||!radar_dma_is_quiescent(d)){failure(s,RADAR_SESSION_E_DMA,RADAR_DMA_E_DEADLINE);break;}
++        /* Unlike the no-input diagnostic, this HALT follows ALL real BDs.
++         * Reset fallback can recover memory but can NEVER validate this run. */
++        if (d->stop_was_incomplete || d->ring->HwCnt || d->partial_prefix ||
++            d->completed_packets!=p->packet_count || d->completed_bds!=d->submitted_bds ||
++            d->completed_bytes!=(u64)p->packet_bytes*p->packet_count ||
++            d->packet_queued!=p->packet_count || d->lease_active) {
++            failure(s,RADAR_SESSION_E_DATA,RADAR_DMA_E_BOUNDARY);break;
++        }
++        ++s->normal_halt_passes;
++        s->result.payload_halt_result=d->halt_result;s->result.payload_halt_us=d->halt_elapsed_us;
+         s->result.session=s->active_session;s->result.bytes=p->packet_bytes*p->packet_count;
+         s->result.packet_bytes=p->packet_bytes;s->result.packet_count=p->packet_count;s->result.format=p->format_flags;
+         s->result.skip_pairs=p->skip_pairs;s->result.startup_mode=p->startup_mode;
+@@ -367,7 +424,13 @@
+         enter(s,RADAR_SESSION_RESET,now);break;
+     case RADAR_SESSION_RESET:
+         if(d->state!=RADAR_DMA_READY){break;}
+-        if(d->reset_result!=RADAR_DMA_PHASE_PASS){failure(s,RADAR_SESSION_E_DMA,RADAR_DMA_E_DEADLINE);break;}
++        if(d->reset_result!=RADAR_DMA_PHASE_PASS || !d->reset_confirmed ||
++            !radar_dma_is_quiescent(d) || d->packet_queued || d->lease_active ||
++            d->ring->FreeCnt!=(int)RADAR_RX_BD_COUNT || d->ring->HwCnt ||
++            d->ring->PreCnt || d->ring->PostCnt || d->epoch!=s->admission_epoch+1U) {
++            failure(s,RADAR_SESSION_E_DMA,RADAR_DMA_E_DEADLINE);break;
++        }
++        s->result.teardown_reset_result=d->reset_result;s->result.teardown_reset_us=d->reset_elapsed_us;
+         rc=radar_sw2_capture_io(s->sw2,0U);if(rc){failure(s,RADAR_SESSION_E_GPIO,rc);break;}
+         rc=recover_pl(s);if(rc){failure(s,RADAR_SESSION_E_RECOVERY,rc);break;}
+         enter(s,RADAR_SESSION_RECOVER_AFTER,now);break;
+@@ -380,7 +443,7 @@
+         enter(s,RADAR_SESSION_DONE,now);
+         SAY(s,"RESULT: PASS SW4 FINITE_RAW16_TRANSPORT session=%u bytes=%u crc32=%08x. Source stop ACK, real BD/length/EOF, fresh snapshot, halt/reset/recover complete.\r\n",
+             (unsigned)s->result.session,(unsigned)s->result.bytes,(unsigned)s->result.crc32);
+-        SAY(s,"[RESULT] CPU copy=%08x; capture export outputs CRC-checked log frames. ADC/IQ/chirp/frame semantics NOT validated. capture clear before next run.\r\n",(unsigned)radar_memory_capture_base());
++        SAY(s,"[RESULT] CPU copy=%08x; capture export outputs CRC-checked log frames. ADC/IQ/chirp/frame semantics NOT validated. Before next run: capture clear, dma qualify, connect/query, capture preflight.\r\n",(unsigned)radar_memory_capture_base());
+         break;
+     case RADAR_SESSION_RECOVERY_HOLD:
+         if(now-s->phase_us<RADAR_RESET_HOLD_US){break;}
+@@ -407,7 +470,7 @@
+         if(rc){failure(s,RADAR_SESSION_E_OWNER,rc);break;}
+         s->owns=0U;++s->recoveries;s->confirmed=0U;
+         enter(s,RADAR_SESSION_IDLE,now);
+-        SAY(s,"[RECOVERED] NRST hold/release + boot wait, DMA reset and PL RECOVER completed. Previous capture stays FAIL. Re-run full dma check, reconnect/query and capture confirm before another run.\r\n");
++        SAY(s,"[RECOVERED] NRST hold/release + boot wait, DMA reset and PL RECOVER completed. Previous capture stays FAIL. Re-run dma qualify (or qualify10), reconnect/query and capture confirm before another run.\r\n");
+         break;
+     default:failure(s,RADAR_SESSION_E_OWNER,0);break;
+     }
+@@ -444,6 +507,11 @@
+         radar_session_error_name(s->error),s->native_error,radar_session_state_name(s->failed_phase),s->cleanup_error);
+     SAY(s,"[SW4 last sample] flags=%08x SYS_fault=%08x PHY=%08x PHY_fault=%08x io=%08x\r\n",
+         (unsigned)s->flags,(unsigned)s->sys_faults,(unsigned)s->phy_status,(unsigned)s->phy_fault,(unsigned)s->io_request);
++    SAY(s,"[SESSION EVIDENCE] entry=%s epoch=%u normal_halt_passes=%u; result_halt=%s/%uus result_reset=%s/%uus\r\n",
++        radar_sw3_qualification_name(s->admission_kind),(unsigned)s->admission_epoch,
++        (unsigned)s->normal_halt_passes,radar_dma_phase_name(s->result.payload_halt_result),
++        (unsigned)s->result.payload_halt_us,radar_dma_phase_name(s->result.teardown_reset_result),
++        (unsigned)s->result.teardown_reset_us);
+     SAY(s,"[RESULT] valid=%u copied=%u bytes=%u crc=%08x export=%u offset=%u; ADC semantics NOT_RUN\r\n",
+         (unsigned)s->result.valid,(unsigned)s->copy_bytes,(unsigned)s->result.bytes,(unsigned)s->result.crc32,
+         (unsigned)s->exporting,(unsigned)s->export_offset);
+@@ -461,11 +529,12 @@
+ int radar_session_command(RadarSession *s,const char *cmd)
+ {
+     int rc;
++    if (strcmp(cmd,"capture preflight")==0) { radar_session_print_preflight(s);return 1; }
+     if (strcmp(cmd,"capture status")==0) { radar_session_print_status(s);return 1; }
+     if (strcmp(cmd,"capture profile")==0||strcmp(cmd,"capture plan")==0) { print_profile(s);return 1; }
+     if (strcmp(cmd,"progress")==0) { radar_session_print_status(s);return 0; }
+     if (strcmp(cmd,"help")==0) {
+-        SAY(s,"SW4: capture profile/plan/status | capture confirm ID | capture once | capture export | capture clear | capture recover\r\n");
++        SAY(s,"SW4.1: capture preflight | capture profile/plan/status | capture confirm ID | capture once | capture export | capture clear | capture recover\r\n");
+         if (s->owns) { return 1; }return 0;
+     }
+     if (strcmp(cmd,"safe")==0||strcmp(cmd,"disable")==0) {
+@@ -486,7 +555,7 @@
+         SAY(s,"[USER ATTESTED] Actual flashed bin/cfg and electrical/source timing match profile %s; explicit RF start is allowed only by capture once\r\n",s->profile->profile_id);return 1;
+     }
+     if (strcmp(cmd,"capture once")==0) {
+-        rc=radar_session_start(s);if(rc){SAY(s,"[REFUSE] capture once: %s. Need full SW3 check, SW2 check10/reset3, current version, generated profile, explicit confirm, empty result\r\n",radar_session_error_name(rc));}return 1;
++        rc=radar_session_start(s);if(rc){SAY(s,"[REFUSE] capture once: %s. Run capture preflight: need fresh epoch-bound dma qualify, SW2 check10/reset3, current version, generated profile, confirm, empty result\r\n",radar_session_error_name(rc));}return 1;
+     }
+     if (strcmp(cmd,"capture export")==0) {
+         if(!s->result.valid||s->state!=RADAR_SESSION_DONE||s->exporting){SAY(s,"[REFUSE] Export needs one validated, retained SW4 result\r\n");return 1;}
+@@ -495,7 +564,7 @@
+     if (strcmp(cmd,"capture clear")==0) {
+         if(s->exporting){SAY(s,"[REFUSE] Finish/cancel export before clear\r\n");return 1;}
+         memset(&s->result,0,sizeof(s->result));s->copy_bytes=0U;enter(s,RADAR_SESSION_IDLE,radar_hw_now_us());
+-        SAY(s,"[RESULT CLEARED] CPU result invalidated, not erased. No hardware operation. Reconnect/query before the next session\r\n");return 1;
++        SAY(s,"[RESULT CLEARED] CPU result invalidated, not erased. No hardware operation. Next: dma qualify, connect/query, capture preflight\r\n");return 1;
+     }
+     if(strncmp(cmd,"capture",7U)==0&&(cmd[7]=='\0'||cmd[7]==' ')){SAY(s,"[REJECT] Unknown capture command; type help\r\n");return 1;}
+     return 0;
+--- uploaded/src/radar_session.h
++++ SW41/src/capture/radar_session.h
+@@ -23,12 +23,24 @@
+     RADAR_SESSION_E_CANCELED=-209,RADAR_SESSION_E_DMA=-210,RADAR_SESSION_E_POWER=-211,
+     RADAR_SESSION_E_RECOVERY=-212,RADAR_SESSION_E_MEMORY=-213
+ };
++/* Independent read-only admission gates; zero means ready for an explicit
++ * capture once, not proof that RF/RAW16/data-path validation has passed. */
++enum RadarPreflightBlock {
++    RADAR_PREFLIGHT_PROFILE=1U<<0, RADAR_PREFLIGHT_CONFIRM=1U<<1,
++    RADAR_PREFLIGHT_DMA_QUAL=1U<<2, RADAR_PREFLIGHT_SW3_BUSY=1U<<3,
++    RADAR_PREFLIGHT_SW2_TESTS=1U<<4, RADAR_PREFLIGHT_VERSION=1U<<5,
++    RADAR_PREFLIGHT_SW2_READY=1U<<6, RADAR_PREFLIGHT_OWNER=1U<<7,
++    RADAR_PREFLIGHT_CONTROL=1U<<8
++};
+ typedef struct {
+     u32 session,bytes,crc32,packet_bytes,packet_count,format,skip_pairs,startup_mode;
+     u64 begin_us,armed_us,complete_us;
+     RadarSnapshotData snapshot;
+     RadarDmaRegisters final_dma;
+     u32 dma_epoch;
++    RadarQualificationKind admission_kind;
++    RadarDmaPhaseResult payload_halt_result, teardown_reset_result;
++    u32 payload_halt_us, teardown_reset_us;
+     u8 valid;
+ } RadarCaptureResult;
+ typedef struct {
+@@ -50,6 +62,8 @@
+     u32 copy_fragment,copy_fragment_offset,copy_bytes,copy_crc;
+     u32 captures_passed,captures_failed,recoveries,phase_polls;
+     u32 export_index,export_offset;
++    u32 preflight_blockers,admission_epoch,normal_halt_passes;
++    RadarQualificationKind admission_kind;
+     int error,native_error,cleanup_error;
+     u8 owns,confirmed,copy_lease,exporting,reported_failure;
+ } RadarSession;
+@@ -57,6 +71,8 @@
+                          RadarControl *control,RadarConsole *console);
+ /* When owns!=0, this is the ONLY poller of DMA and UART1. */
+ void radar_session_poll(RadarSession *s);
++u32 radar_session_preflight(RadarSession *s);
++void radar_session_print_preflight(RadarSession *s);
+ /* Returns 1 if handled/blocked, 0 if safely delegable to SW3/SW2. */
+ int radar_session_command(RadarSession *s,const char *command);
+ int radar_session_start(RadarSession *s);
+--- uploaded/src/radar_contract.h
++++ SW41/src/config/radar_contract.h
+@@ -6,7 +6,7 @@
+ #ifndef RADAR_CONTRACT_H
+ #define RADAR_CONTRACT_H
+ #include <stdint.h>
+-#define RADAR_SW_VERSION             "M2-SW4-v1.0"
++#define RADAR_SW_VERSION             "M2-SW4.1-v1.1"
+ #define RADAR_EXPECTED_ABI           UINT32_C(0x52430101)
+ #define RADAR_DMA_BASE               UINT32_C(0xA0000000)
+ #define RADAR_GPIO_BASE              UINT32_C(0xA0010000)
+--- uploaded/src/CMakeLists.txt
++++ SW41/src/CMakeLists.txt
+@@ -17,7 +17,17 @@
+ # Use CMAKE_LIBRARY_PATH in link_directories
+ link_directories(${CMAKE_LIBRARY_PATH})
+ 
+-list (APPEND _sources ${USER_COMPILE_SOURCES})
++# Explicit list only: never compile caches/tests/old flat copies implicitly.
++set(_sources ${USER_COMPILE_SOURCES})
++foreach(source IN LISTS _sources)
++    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
++        message(FATAL_ERROR "Missing production source: ${source}")
++    endif()
++endforeach()
++file(GLOB _legacy_flat_c "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
++if(_legacy_flat_c)
++    message(FATAL_ERROR "Legacy flat C files remain in src: ${_legacy_flat_c}. Replace the complete src tree, not overlay.")
++endif()
+ foreach (source ${_sources})
+     get_filename_component(ext ${source} EXT)
+     list(APPEND src_ext ${ext})
+@@ -38,7 +48,7 @@
+ string (REPLACE ";" ",-l" _deps "${_deps}")
+ endif()
+ if (CMAKE_EXPORT_COMPILE_COMMANDS AND
+-    (NOT ${YOCTO}))
++    (NOT YOCTO))
+     set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES})
+     set(CMAKE_C_STANDARD_INCLUDE_DIRECTORIES ${CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES})
+ endif()
+--- uploaded/src/UserConfig.cmake
++++ SW41/src/UserConfig.cmake
+@@ -27,22 +27,26 @@
+ # Example 3: Adding ${CMAKE_SOURCE_DIR}/data/include to add data/include from this project.
+ 
+ set(USER_INCLUDE_DIRECTORIES
++    "${CMAKE_CURRENT_LIST_DIR}/app"
++    "${CMAKE_CURRENT_LIST_DIR}/hal"
++    "${CMAKE_CURRENT_LIST_DIR}/capture"
++    "${CMAKE_CURRENT_LIST_DIR}/config"
+ )
+ set(USER_COMPILE_SOURCES
+-    "main.c"
+-    "radar_hw.c"
+-    "radar_memory.c"
+-    "radar_control.c"
+-    "radar_cli.c"
+-    "radar_console.c"
+-    "radar_sw2.c"
+-    "radar_dma.c"
+-    "radar_sw3.c"
+-    "radar_capture_profile.c"
+-    "radar_snapshot.c"
+-    "radar_session.c"
+-    "radar_crc32.c"
+-    "radar_export.c"
++    "app/main.c"
++    "hal/radar_hw.c"
++    "hal/radar_memory.c"
++    "hal/radar_control.c"
++    "hal/radar_cli.c"
++    "app/radar_console.c"
++    "app/radar_sw2.c"
++    "hal/radar_dma.c"
++    "app/radar_sw3.c"
++    "capture/radar_capture_profile.c"
++    "capture/radar_snapshot.c"
++    "capture/radar_session.c"
++    "capture/radar_crc32.c"
++    "capture/radar_export.c"
+ )
+ 
+ # -----------------------------------------
+@@ -146,7 +150,7 @@
+ # -----------------------------------------
+ 
+ set(USER_LINKER_SCRIPT
+-"${CMAKE_SOURCE_DIR}/lscript_sw4.ld"
++"${CMAKE_CURRENT_LIST_DIR}/linker/lscript_sw4.ld"
+ )
+ 
+ # Add linker options to be passed, they will be added as extra linker options

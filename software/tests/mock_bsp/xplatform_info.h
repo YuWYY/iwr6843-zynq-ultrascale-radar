@@ -1,0 +1,3 @@
+#ifndef MOCK_PLATFORM_INFO_H
+#define MOCK_PLATFORM_INFO_H
+#endif

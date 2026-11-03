@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "name": "TI35_F20_3TX_HSI_STREAM0",
+  "firmware_sha256": "a48f76f25afca829ea9ebf432e0a4a091b6ad7cfa5c8df2783b2944864f7ac0b",
+  "cfg_sha256": "c428e462245443b6ee62253c258cc61a416150c9ca92edc159cf67ea734a5d53",
+  "version_substring": "03.05.00.04",
+  "lanes": 2,
+  "lane_mbps": 600,
+  "word_bits": 16,
+  "format_flags": 8,
+  "packet_bytes": 399360,
+  "packet_count": 0,
+  "skip_pairs": 0,
+  "startup_mode": "REVIEWED_PREAMBLE",
+  "receive_timeout_us": 4000000,
+  "snapshot_timeout_us": 500000,
+  "use_delay": false,
+  "taps": [
+    0,
+    0,
+    0
+  ],
+  "approvals": {
+    "board_revision_and_electrical_verified": {
+      "approved": true,
+      "evidence": "board_confirmation.json: user identifies IWR6843ISK PROC073REVD and Milianke F20, supplied fixed LVDS mapping and restored original adapter; user explicitly confirms S1.5 ON and HDR1 1V8/1-2. Reviewed board_io_contract.md and Rev D schematic show Bank44 3.3V and Bank65 internal 100ohm termination with no parallel shunt in supplied adapter/TI path. Acceptance is bounded to this bounded finite-frame experiment with unchanged wiring; no meter/waveform measurement claimed."
+    },
+    "actual_flashed_firmware_matches_file": {
+      "approved": true,
+      "evidence": "flash/20261030_program_01: known SHA-256 image programmed as META_IMAGE1 by native UniFlash, exit 0; ROM final CLOSE GET STATUS 0x40 with valid response checksum; subsequent functional boot reports SDK 03.05.00.04/IWR68XX. No independent bitwise readback; original factory image identity remains unknown."
+    },
+    "uart_version_and_commands_verified": {
+      "approved": false,
+      "evidence": "New stream receive flow has not completed hardware acceptance. Unchanged waveform and existing finite evidence do not prove streaming stop, refill or timing."
+    },
+    "two_lane_600mbps_raw16_wire_format_verified": {
+      "approved": false,
+      "evidence": "New stream receive flow has not completed hardware acceptance. Unchanged waveform and existing finite evidence do not prove streaming stop, refill or timing."
+    },
+    "source_timing_and_termination_verified": {
+      "approved": false,
+      "evidence": "New stream receive flow has not completed hardware acceptance. Unchanged waveform and existing finite evidence do not prove streaming stop, refill or timing."
+    },
+    "idle_clock_or_start_preamble_verified": {
+      "approved": false,
+      "evidence": "New stream receive flow has not completed hardware acceptance. Unchanged waveform and existing finite evidence do not prove streaming stop, refill or timing."
+    },
+    "sensor_stop_and_reset_non_autostart_verified": {
+      "approved": false,
+      "evidence": "New stream receive flow has not completed hardware acceptance. Unchanged waveform and existing finite evidence do not prove streaming stop, refill or timing."
+    },
+    "finite_transport_geometry_and_metadata_reviewed": {
+      "approved": true,
+      "evidence": "Unchanged3TX/4RX, TX0/2/1,32loops,96HSI records and399360 bytes/frame. 128 BDs support an18-frame rolling window;16 RAW slots use explicit leases. Source count0 uses separate STREAM qualification; runtime flow acceptance pending."
+    }
+  },
+  "qualification": "STREAM_FRAME_TEST",
+  "source_reviews": {
+    "uart_protocol": {
+      "approved": true,
+      "summary": "Source compatibility inherited from the exact SDK3.5 and finite3TX review; only numFrames changes to0. Runtime stream acceptance remains pending.",
+      "evidence": [
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\flash\\20261030_program_01\\PROGRAM_RESULT.md",
+          "sha256": "782916fc4fc8eddeec3801a16e551ea7efb0ee7fdbaf371d0fa613193dc24b2a"
+        },
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\flash\\20261030_program_01\\cfg_acceptance.json",
+          "sha256": "1415bc52fdf3baead411aeb68a3945486c0b5d2f31e381710a7bb6ec3f19aaf3"
+        },
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\mss\\mmw_cli.c",
+          "sha256": "7eb3d1824eebd4b5368f21fca5d265e53a4d1956bcd2eb55f153b863b3e1dacf"
+        },
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\profiles\\profile_3d.cfg",
+          "sha256": "cf66b95490c97bbb9b4174a90ff356b4bdeb7cb739b247b67a6bc4eae63ef73b"
+        },
+        {
+          "path": "/software\\verification\\20261030_pages_3tx_01\\inputs\\radar_3tx_hsi_single.cfg",
+          "sha256": "8eb44d742c1e2d00a314a4d8dcbef45732d359d4d4de2d153b57234948904566"
+        }
+      ]
+    },
+    "wire_format": {
+      "approved": true,
+      "summary": "Source compatibility inherited from the exact SDK3.5 and finite3TX review; only numFrames changes to0. Runtime stream acceptance remains pending.",
+      "evidence": [
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\reports\\sdk_raw16_review.md",
+          "sha256": "b6b85a5942b41aec28a6f61561a2114680053a949e4a2e51b3635de6db941607"
+        },
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\iwr6843isk_sdk35_raw16_candidate.cfg",
+          "sha256": "ec48f0679a2ffd4c8bd3be704aec844d2fd0d1005b8aa5f6d6dfd2f199040f3e"
+        },
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\mss\\mss_main.c",
+          "sha256": "4461fa77abe22c28fc20655394fd853552ff4a909180b4d18c64de8e4073f72a"
+        },
+        {
+          "path": "/software\\verification\\20261030_adc_dp_01\\inputs\\sdk_hsi_sources\\hsiheader.c",
+          "sha256": "27b30b8fafe624849c390040716ca535704a8510d2c9684ca1b0c88bef534687"
+        },
+        {
+          "path": "/software\\verification\\20261030_adc_dp_01\\inputs\\sdk_hsi_sources\\mmwave_sdk_version.h",
+          "sha256": "f2039f0d64ce2226d4866f57076363877d26d908337b64332c3b6ca7bc10a000"
+        },
+        {
+          "path": "/software\\verification\\20261030_adc_dp_01\\inputs\\hsi_single\\radar.cfg",
+          "sha256": "895994e473a720d80a7550a947542ff73aa52beefcb1418f33e0b1ec7c7f1ee5"
+        },
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\profiles\\profile_3d.cfg",
+          "sha256": "cf66b95490c97bbb9b4174a90ff356b4bdeb7cb739b247b67a6bc4eae63ef73b"
+        },
+        {
+          "path": "/software\\verification\\20261030_pages_3tx_01\\inputs\\radar_3tx_hsi_single.cfg",
+          "sha256": "8eb44d742c1e2d00a314a4d8dcbef45732d359d4d4de2d153b57234948904566"
+        }
+      ]
+    },
+    "startup_preamble": {
+      "approved": true,
+      "summary": "Source compatibility inherited from the exact SDK3.5 and finite3TX review; only numFrames changes to0. Runtime stream acceptance remains pending.",
+      "evidence": [
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\reports\\sdk_clock_startup_review.md",
+          "sha256": "a6c7d1936b02a8697ab6230c9728d024f007470953812e684dd891839aa23539"
+        },
+        {
+          "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\mss\\mss_main.c",
+          "sha256": "4461fa77abe22c28fc20655394fd853552ff4a909180b4d18c64de8e4073f72a"
+        },
+        {
+          "path": "/fpga\\rtl\\phy\\radar_lvds_phy.v",
+          "sha256": "b38fae364479425e987be14429882b490f459f74eb9e26d0c871f39c5a434040"
+        }
+      ]
+    }
+  },
+  "batch_evidence_scope": "OFFLINE ONLY: finite geometry and buffer fit checked; actual multi-frame HSI/clock/frame-boundary behavior pending board validation."
+}

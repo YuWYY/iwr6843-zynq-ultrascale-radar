@@ -1,0 +1,4 @@
+{
+  "tests": ["tb_decoder", "tb_packetizer", "tb_io_guard", "tb_cdc", "tb_control", "tb_phy_unisim", "tb_capture_fifo", "tb_delay_transaction", "tb_delay_sequencer", "tb_early_clock_loss", "tb_phy_closure", "tb_status_cdc", "tb_reset_cdc"],
+  "phase_tests": {"tb_delay_transaction": ["PHASE000", "PHASE025", "PHASE125", "PHASE225"]}
+}

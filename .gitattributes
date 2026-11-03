@@ -1,0 +1,28 @@
+* text=auto eol=lf
+
+*.v       text
+*.sv      text
+*.vh      text
+*.c       text
+*.h       text
+*.py      text
+*.tcl     text
+*.md      text
+*.json    text
+*.xdc     text
+*.xpr     text
+*.bd      text
+*.bda     text
+*.cfg     text
+*.cmake   text
+*.ld      text
+
+*.png     binary
+*.jpg     binary
+*.rgba    binary
+*.xci     text
+*.dcp     binary
+*.bit     binary
+*.elf     binary
+*.xsa     binary
+*.otf     binary

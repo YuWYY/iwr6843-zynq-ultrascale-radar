@@ -1,0 +1,201 @@
+{
+  "schema": 1,
+  "evidence": [],
+  "source_timing": {
+    "status": "PENDING",
+    "pending_reasons": [
+      "Actual running radar bin/cfg/CLI and 600 Mbps lane/edge relation remain unconfirmed.",
+      "No reviewed three-lane dual-edge source/path budget for the actual complete assembly.",
+      "No signed board/voltage/temperature and IDELAY initial-point scope."
+    ],
+    "review": {
+      "reviewer": null,
+      "date": null,
+      "scope": null,
+      "evidence_refs": []
+    },
+    "reference_plane": null,
+    "operating_conditions": null,
+    "relative_uncertainty_accounting": null,
+    "path_coverage": null,
+    "no_double_counting_reviewed": false,
+    "firmware": {
+      "bin_evidence": null,
+      "cfg_evidence": null,
+      "version": null,
+      "cli_version": null,
+      "output_mode": null,
+      "lane_mapping_and_polarity": null,
+      "frame_clock_relation": null,
+      "confirmed_running_on_this_board": false,
+      "lanes": 2,
+      "rate_mbps_per_lane": 600,
+      "bitclk_mhz": 300,
+      "word_bits": 16
+    },
+    "idelay_scope": {
+      "mode": "RESET_CALIBRATED_INITIAL_ONLY",
+      "sta_delay_value_ps": 0,
+      "excluded_software_taps": "Any software-programmed absolute tap differs from this initial STA point and requires separate reviewed timing coverage.",
+      "evidence_refs": []
+    },
+    "lanes": {
+      "radar_data0_p": {
+        "rise": {
+          "source_min_ns": null,
+          "source_max_ns": null,
+          "data_path_min_ns": null,
+          "data_path_max_ns": null,
+          "clock_path_min_ns": null,
+          "clock_path_max_ns": null,
+          "early_margin_ns": null,
+          "late_margin_ns": null,
+          "reference_edge_relation": null,
+          "evidence_refs": {
+            "source": [],
+            "path": [],
+            "margin": []
+          }
+        },
+        "fall": {
+          "source_min_ns": null,
+          "source_max_ns": null,
+          "data_path_min_ns": null,
+          "data_path_max_ns": null,
+          "clock_path_min_ns": null,
+          "clock_path_max_ns": null,
+          "early_margin_ns": null,
+          "late_margin_ns": null,
+          "reference_edge_relation": null,
+          "evidence_refs": {
+            "source": [],
+            "path": [],
+            "margin": []
+          }
+        }
+      },
+      "radar_data1_p": {
+        "rise": {
+          "source_min_ns": null,
+          "source_max_ns": null,
+          "data_path_min_ns": null,
+          "data_path_max_ns": null,
+          "clock_path_min_ns": null,
+          "clock_path_max_ns": null,
+          "early_margin_ns": null,
+          "late_margin_ns": null,
+          "reference_edge_relation": null,
+          "evidence_refs": {
+            "source": [],
+            "path": [],
+            "margin": []
+          }
+        },
+        "fall": {
+          "source_min_ns": null,
+          "source_max_ns": null,
+          "data_path_min_ns": null,
+          "data_path_max_ns": null,
+          "clock_path_min_ns": null,
+          "clock_path_max_ns": null,
+          "early_margin_ns": null,
+          "late_margin_ns": null,
+          "reference_edge_relation": null,
+          "evidence_refs": {
+            "source": [],
+            "path": [],
+            "margin": []
+          }
+        }
+      },
+      "radar_frclk_p": {
+        "rise": {
+          "source_min_ns": null,
+          "source_max_ns": null,
+          "data_path_min_ns": null,
+          "data_path_max_ns": null,
+          "clock_path_min_ns": null,
+          "clock_path_max_ns": null,
+          "early_margin_ns": null,
+          "late_margin_ns": null,
+          "reference_edge_relation": null,
+          "evidence_refs": {
+            "source": [],
+            "path": [],
+            "margin": []
+          }
+        },
+        "fall": {
+          "source_min_ns": null,
+          "source_max_ns": null,
+          "data_path_min_ns": null,
+          "data_path_max_ns": null,
+          "clock_path_min_ns": null,
+          "clock_path_max_ns": null,
+          "early_margin_ns": null,
+          "late_margin_ns": null,
+          "reference_edge_relation": null,
+          "evidence_refs": {
+            "source": [],
+            "path": [],
+            "margin": []
+          }
+        }
+      }
+    }
+  },
+  "board_electrical": {
+    "status": "PENDING",
+    "pending_reasons": [
+      "Actual F20/core/carrier/adapter/radar assembly revision and Bank65 1.8 V jumper or measurement are unconfirmed.",
+      "Whole radar-board/cable/adapter/F20 termination chain and Bank64/Bank44 physical electrical conditions are unconfirmed."
+    ],
+    "review": {
+      "reviewer": null,
+      "date": null,
+      "scope": null,
+      "evidence_refs": []
+    },
+    "f20_core_revision": null,
+    "f20_carrier_revision": null,
+    "adapter_revision": null,
+    "radar_revision": null,
+    "assembly_identity": null,
+    "power_ground_polarity_review": null,
+    "power_off_compatibility_review": null,
+    "actual_board_confirmed": false,
+    "bank65_vcco_v": null,
+    "bank65_confirmation": null,
+    "bank65_evidence_refs": [],
+    "bank64_vcco_v": null,
+    "bank64_evidence_refs": [],
+    "bank64_ac_bias_external_termination": null,
+    "bank44_vcco_v": null,
+    "bank44_evidence_refs": [],
+    "bank65_termination": {
+      "receiver_internal_ohms": 100,
+      "segments": {
+        "radar_board": {
+          "external_diff_ohms": null,
+          "review": null,
+          "evidence_refs": []
+        },
+        "cable_connectors": {
+          "external_diff_ohms": null,
+          "review": null,
+          "evidence_refs": []
+        },
+        "adapter": {
+          "external_diff_ohms": null,
+          "review": null,
+          "evidence_refs": []
+        },
+        "f20": {
+          "external_diff_ohms": null,
+          "review": null,
+          "evidence_refs": []
+        }
+      }
+    }
+  }
+}

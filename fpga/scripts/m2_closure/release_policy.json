@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "cdc_accepted": [],
+  "drc_accepted": [],
+  "native_log_accepted": [],
+  "source_timing": "PENDING",
+  "board_electrical": "PENDING"
+}

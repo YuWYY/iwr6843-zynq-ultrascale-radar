@@ -1,0 +1,47 @@
+# Vivado / Vitis build artefacts
+*.jou
+*.log
+*.str
+*.dcp
+*.bit
+*.bin
+*.ltx
+*.xsa
+*.elf
+*.mmi
+*.pb
+*.wdb
+*.vdi
+*.wcfg
+*.sim/
+*.runs/
+*.cache/
+*.gen/
+*.hw/
+*.ip_user_files/
+.Xil/
+_ide/
+.rigel_lopper/
+workspace/
+
+# QSPI / boot images
+BOOT.BIN
+boot.bif
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Local archives and scratch output
+/archive/*
+!/archive/README.md
+/tmp/

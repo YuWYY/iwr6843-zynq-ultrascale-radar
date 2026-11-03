@@ -1,0 +1,124 @@
+{
+  "schema": 1,
+  "firmware_sha256": "a48f76f25afca829ea9ebf432e0a4a091b6ad7cfa5c8df2783b2944864f7ac0b",
+  "cfg_sha256": "c428e462245443b6ee62253c258cc61a416150c9ca92edc159cf67ea734a5d53",
+  "review_sha256": "e8e084d3286f821bb667acf6fc8c0244d5cb2ff9da2980ebdb16f4b911cd10fa",
+  "qualification": "STREAM_FRAME_TEST",
+  "source_review_flags": 7,
+  "profile_id": "ba6ddefbcaf3defb",
+  "name": "TI35_F20_3TX_HSI_STREAM0",
+  "configuration_lines": 29,
+  "packet_bytes": 399360,
+  "packet_count": 0,
+  "total_bytes": 0,
+  "startup_mode": "REVIEWED_PREAMBLE",
+  "approvals": 131,
+  "source_evidence": [
+    {
+      "review": "uart_protocol",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\flash\\20261030_program_01\\PROGRAM_RESULT.md",
+      "sha256": "782916fc4fc8eddeec3801a16e551ea7efb0ee7fdbaf371d0fa613193dc24b2a"
+    },
+    {
+      "review": "uart_protocol",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\flash\\20261030_program_01\\cfg_acceptance.json",
+      "sha256": "1415bc52fdf3baead411aeb68a3945486c0b5d2f31e381710a7bb6ec3f19aaf3"
+    },
+    {
+      "review": "uart_protocol",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\mss\\mmw_cli.c",
+      "sha256": "7eb3d1824eebd4b5368f21fca5d265e53a4d1956bcd2eb55f153b863b3e1dacf"
+    },
+    {
+      "review": "uart_protocol",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\profiles\\profile_3d.cfg",
+      "sha256": "cf66b95490c97bbb9b4174a90ff356b4bdeb7cb739b247b67a6bc4eae63ef73b"
+    },
+    {
+      "review": "uart_protocol",
+      "path": "/software\\verification\\20261030_pages_3tx_01\\inputs\\radar_3tx_hsi_single.cfg",
+      "sha256": "8eb44d742c1e2d00a314a4d8dcbef45732d359d4d4de2d153b57234948904566"
+    },
+    {
+      "review": "wire_format",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\reports\\sdk_raw16_review.md",
+      "sha256": "b6b85a5942b41aec28a6f61561a2114680053a949e4a2e51b3635de6db941607"
+    },
+    {
+      "review": "wire_format",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\iwr6843isk_sdk35_raw16_candidate.cfg",
+      "sha256": "ec48f0679a2ffd4c8bd3be704aec844d2fd0d1005b8aa5f6d6dfd2f199040f3e"
+    },
+    {
+      "review": "wire_format",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\mss\\mss_main.c",
+      "sha256": "4461fa77abe22c28fc20655394fd853552ff4a909180b4d18c64de8e4073f72a"
+    },
+    {
+      "review": "wire_format",
+      "path": "/software\\verification\\20261030_adc_dp_01\\inputs\\sdk_hsi_sources\\hsiheader.c",
+      "sha256": "27b30b8fafe624849c390040716ca535704a8510d2c9684ca1b0c88bef534687"
+    },
+    {
+      "review": "wire_format",
+      "path": "/software\\verification\\20261030_adc_dp_01\\inputs\\sdk_hsi_sources\\mmwave_sdk_version.h",
+      "sha256": "f2039f0d64ce2226d4866f57076363877d26d908337b64332c3b6ca7bc10a000"
+    },
+    {
+      "review": "wire_format",
+      "path": "/software\\verification\\20261030_adc_dp_01\\inputs\\hsi_single\\radar.cfg",
+      "sha256": "895994e473a720d80a7550a947542ff73aa52beefcb1418f33e0b1ec7c7f1ee5"
+    },
+    {
+      "review": "wire_format",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\profiles\\profile_3d.cfg",
+      "sha256": "cf66b95490c97bbb9b4174a90ff356b4bdeb7cb739b247b67a6bc4eae63ef73b"
+    },
+    {
+      "review": "wire_format",
+      "path": "/software\\verification\\20261030_pages_3tx_01\\inputs\\radar_3tx_hsi_single.cfg",
+      "sha256": "8eb44d742c1e2d00a314a4d8dcbef45732d359d4d4de2d153b57234948904566"
+    },
+    {
+      "review": "startup_preamble",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\reports\\sdk_clock_startup_review.md",
+      "sha256": "a6c7d1936b02a8697ab6230c9728d024f007470953812e684dd891839aa23539"
+    },
+    {
+      "review": "startup_preamble",
+      "path": "/software\\verification\\20261030_capture_prepare_01\\inputs\\sdk_extract\\mmwave_sdk_03_05_00_04\\packages\\ti\\demo\\xwr68xx\\mmw\\mss\\mss_main.c",
+      "sha256": "4461fa77abe22c28fc20655394fd853552ff4a909180b4d18c64de8e4073f72a"
+    },
+    {
+      "review": "startup_preamble",
+      "path": "/fpga\\rtl\\phy\\radar_lvds_phy.v",
+      "sha256": "b38fae364479425e987be14429882b490f459f74eb9e26d0c871f39c5a434040"
+    }
+  ],
+  "evidence_note": "STREAM_FRAME_TEST_NEW_FLOW_HARDWARE_ACCEPTANCE_PENDING",
+  "finite_geometry": {
+    "source_frames": 0,
+    "hsi_header_enabled": 1,
+    "chirps_per_frame": 96,
+    "samples_per_rx": 256,
+    "rx_mask": 15,
+    "rx_channels": 4,
+    "tx_sequence": [
+      0,
+      2,
+      1
+    ],
+    "tx_mask": 7,
+    "tx_count": 3,
+    "loops": 32,
+    "frame_period_ms": 100,
+    "adc_sample_swap": 1,
+    "channel_interleave": 1,
+    "adc_bytes_per_chirp": 4096,
+    "expected_header_bytes": 64,
+    "wire_bytes_per_chirp": 4160,
+    "wire_bytes_per_frame": 399360,
+    "stream_window_frames": 18,
+    "raw_slots": 16
+  }
+}

@@ -1,0 +1,10 @@
+# Pure processing tests. Include from tests/CMakeLists.txt after APP is set.
+add_executable(radar_range_tests test_range.c ${APP}/processing/radar_range.c)
+target_include_directories(radar_range_tests PRIVATE ${APP}/processing)
+target_compile_options(radar_range_tests PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+target_link_libraries(radar_range_tests PRIVATE m)
+add_test(NAME range_dsp_regressions COMMAND radar_range_tests)
+if(RADAR_UBSAN)
+    target_compile_options(radar_range_tests PRIVATE -fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer)
+    target_link_options(radar_range_tests PRIVATE -fsanitize=undefined -fno-sanitize-recover=all)
+endif()

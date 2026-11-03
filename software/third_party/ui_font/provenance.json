@@ -1,0 +1,33 @@
+{
+  "repository": "https://github.com/notofonts/noto-cjk",
+  "tag": "Sans2.004",
+  "commit": "523d033d6cb47f4a80c58a35753646f5c3608a78",
+  "license": "OFL-1.1",
+  "retrieved_date": "2026-11-02",
+  "archived": false,
+  "superseded": false,
+  "archive_check": "Primary GitHub repository page has no archive banner; main branch resolves via git ls-remote",
+  "files": [
+    {
+      "file": "NotoSansCJKsc-Regular.otf",
+      "upstream_path": "Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf",
+      "sha256": "2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b",
+      "bytes": 16437364
+    },
+    {
+      "file": "LICENSE.txt",
+      "upstream_path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/523d033d6cb47f4a80c58a35753646f5c3608a78/LICENSE",
+      "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+      "bytes": 4301
+    }
+  ],
+  "font_notices": {
+    "0": "\u00a9 2014-2021 Adobe (http://www.adobe.com/).",
+    "5": "Version 2.004;hotconv 1.0.118;makeotfexe 2.5.65603",
+    "8": "Adobe",
+    "13": "This Font Software is licensed under the SIL Open Font License, Version 1.1. This Font Software is distributed on an \"AS IS\" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the SIL Open Font License for the specific language, permissions and limitations governing your use of this Font Software.",
+    "14": "http://scripts.sil.org/OFL"
+  }
+}

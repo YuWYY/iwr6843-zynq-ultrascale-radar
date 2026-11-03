@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "name": "REPLACE_WITH_REVIEWED_BOARD_FW_CFG_ID",
+  "firmware_sha256": "REPLACE_WITH_SHA256_OF_ACTUAL_BIN",
+  "cfg_sha256": "REPLACE_WITH_SHA256_OF_ACTUAL_CFG",
+  "version_substring": "REPLACE_WITH_REAL_SDK_VERSION",
+  "lanes": 2,
+  "lane_mbps": 600,
+  "word_bits": 16,
+  "format_flags": 8,
+  "packet_bytes": 131072,
+  "packet_count": 1,
+  "skip_pairs": 0,
+  "startup_mode": "IDLE_CLOCK",
+  "receive_timeout_us": 2000000,
+  "snapshot_timeout_us": 100000,
+  "use_delay": false,
+  "taps": [
+    0,
+    0,
+    0
+  ],
+  "approvals": {
+    "board_revision_and_electrical_verified": {
+      "approved": false,
+      "evidence": ""
+    },
+    "actual_flashed_firmware_matches_file": {
+      "approved": false,
+      "evidence": ""
+    },
+    "uart_version_and_commands_verified": {
+      "approved": false,
+      "evidence": ""
+    },
+    "two_lane_600mbps_raw16_wire_format_verified": {
+      "approved": false,
+      "evidence": ""
+    },
+    "source_timing_and_termination_verified": {
+      "approved": false,
+      "evidence": ""
+    },
+    "idle_clock_or_start_preamble_verified": {
+      "approved": false,
+      "evidence": ""
+    },
+    "sensor_stop_and_reset_non_autostart_verified": {
+      "approved": false,
+      "evidence": ""
+    },
+    "finite_transport_geometry_and_metadata_reviewed": {
+      "approved": false,
+      "evidence": ""
+    }
+  }
+}
