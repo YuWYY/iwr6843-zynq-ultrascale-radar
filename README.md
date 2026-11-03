@@ -108,6 +108,19 @@ with partitions ordered FSBL → bitstream → application ELF, then program QSP
 | Streaming (v1.10.1) | 6213 frames, 621.2 s, 9.9967 Hz, interval P95 100.1 ms, 0 CRC/HSI/DMA/metadata errors |
 | Long run (v1.11.1) | 6211 frames, 621.0 s, 9.9992 Hz, latency P95 134.5 ms, scene CPU P95 1.72 ms |
 | QSPI boot (v1.12.0) | Cold boot with JTAG unplugged, application autostart 12.675 s, 979/978/977 in the short run |
+| Key navigation | KEY3 short press → next page, hold ≥ 1 s → overview; verified on hardware |
+
+## Key navigation
+
+KEY3 (`PS_BUT`, MIO43, active-low, external 2.2 kΩ pull-up to 1.8 V) is polled
+every 5 ms with a 30 ms debounce. A short press advances to the next page; holding
+the button for one second returns to the overview. The path only requests a page
+from the display scheduler — it never touches capture, DMA or the radar UART.
+
+The button is implemented and has been verified on hardware. Some per-milestone
+`RESULT.md` files state that KEY3 was *not tested in that round*; those lines
+describe the scope of that specific round (the page walks were driven through the
+software page interface instead), not the state of the feature.
 
 ## Known limitations
 
@@ -117,7 +130,6 @@ These are deliberate, documented boundaries — please read them before citing t
 - **The full 80 ms/frame CPU budget is not proven.** Instrumented kernels reach P95 ≈ 61 ms, but main-loop, UART and console overhead are not fully accounted.
 - **Spatial output is uncalibrated.** Angles/height come from a nominal array (`UNCALIBRATED / NOMINAL ARRAY`); `HUMAN?` and `WALL?` are experimental rule outputs, not classification accuracy.
 - **External LVDS input timing is still pending.** The `set_input_delay` template is not imported; internal timing closure does not imply a signed-off input sampling window.
-- **KEY3 was never tested** electrically; page switching was exercised through the software interface.
 - A DisplayPort startup flag (`0x8`) latched during initialisation is retained; audits only state that no *new* DP errors were observed in scope.
 - Booting was verified once with a physical power cycle, not over repeated power cycles or long-duration soak.
 
